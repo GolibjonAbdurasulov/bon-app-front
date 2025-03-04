@@ -1,8 +1,8 @@
 <template>
   <div class="container">
     <h1>Scanner qiling</h1>
-    
-    <!-- Scanner Input -->
+
+    <!-- Scanner Input (ko‘rinmas) -->
     <input 
       type="text" 
       ref="scannerInput" 
@@ -11,20 +11,23 @@
       class="scanner-input"
     />
 
-    <!-- Natija Box -->
-    <div v-if="apiResult" class="result-box">
-      <h2>Buyurtma Ma'lumotlari</h2>
-      <p><strong>Stol Raqami:</strong> {{ apiResult.tableNumber }}</p>
-      <p><strong>Umumiy Narx:</strong> {{ apiResult.price }} so'm</p>
-      <h3>Taomlar:</h3>
-      <ul>
+    <!-- API natijasi mavjud bo‘lsa -->
+    <div v-if="message || apiResult" class="result-box">
+      <h2 v-if="apiResult">Buyurtma Ma'lumotlari</h2>
+      <p v-if="apiResult"><strong>Stol Raqami:</strong> {{ apiResult.tableNumber }}</p>
+      <p v-if="apiResult"><strong>Umumiy Narx:</strong> {{ apiResult.price }} so'm</p>
+      <h3 v-if="apiResult">Taomlar:</h3>
+      <ul v-if="apiResult">
         <li v-for="(food, index) in apiResult.foods" :key="index">
           {{ food.foodName }} - {{ food.quentity }} ta
         </li>
       </ul>
-      
-      <!-- To'landi Tugmasi -->
-      <button @click="markAsPaid" class="pay-button">To'landi</button>
+
+      <!-- To‘landi Tugmasi -->
+      <button v-if="apiResult" @click="markAsPaid" class="pay-button">To‘landi</button>
+
+      <!-- Xatolik yoki Bo‘sh Buyurtma Xabari -->
+      <p v-if="message" class="no-orders">{{ message }}</p>
     </div>
   </div>
 </template>
@@ -36,50 +39,69 @@ export default {
     return {
       scannedData: "",
       apiResult: null,
+      message: "", 
     };
   },
   methods: {
-    async fetchData(url, method = "GET") {
+    async fetchData(url, method = "GET", body = null) {
+      console.log(`fetchData -> URL: ${url}, Method: ${method}`);
+
       const token = localStorage.getItem("jwt_token");
       if (!token) {
         alert("Token topilmadi! Iltimos, tizimga kirish qiling.");
         return null;
       }
-      
+
       try {
-        const response = await fetch(url, {
+        const options = {
           method,
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        });
-        
-        if (!response.ok) throw new Error(`HTTP xato! Status: ${response.status}`);
+        };
+
+        if (body) options.body = JSON.stringify(body);
+
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          if (response.status === 500) return null;
+          throw new Error(`HTTP xato! Status: ${response.status}`);
+        }
+
         return await response.json();
       } catch (error) {
-        console.error("Xatolik yuz berdi:", error);
-        alert("Xatolik yuz berdi: " + error.message);
+        console.error("Xatolik:", error);
         return null;
       }
     },
 
     async handleScan() {
+      console.log("handleScan -> scannedData:", this.scannedData);
+
       if (!this.scannedData.trim()) {
-        alert("QR-kod bo'sh bo'lishi mumkin emas!");
+        alert("QR-kod bo‘sh bo‘lishi mumkin emas!");
         return;
       }
-      
-      const result = await this.fetchData(`https://api.bonapp.uz/Check/GetCheckByQrCode?number=${this.scannedData.trim()}`);
-      
-      if (result && result.code === 200) {
+
+      this.message = ""; 
+      this.apiResult = null;
+
+      const result = await this.fetchData(
+        `https://api.bonapp.uz/Check/GetCheckByQrCode?number=${this.scannedData.trim()}`
+      );
+
+      if (result?.code === 200 && result.content) {
         this.apiResult = result.content;
       } else {
-        alert("API xatosi: " + (result?.error || "Noma'lum xato"));
+        this.message = "Hali buyurtmalar mavjud emas";
+        setTimeout(() => {
+          this.message = "";
+        }, 2000);
       }
-      
+
       this.scannedData = "";
-      this.$refs.scannerInput.focus();
+      this.focusScanner(); // Har doim inputni aktiv qilish
     },
 
     async markAsPaid() {
@@ -87,17 +109,33 @@ export default {
         alert("ID topilmadi!");
         return;
       }
-      
-      const result = await this.fetchData(`https://api.bonapp.uz/Check/ChangeCheckStatusToCash?id=${this.apiResult.id}`, "PUT");
-      
+
+      const result = await this.fetchData(
+        `https://api.bonapp.uz/Check/ChangeCheckStatusToCash?id=${this.apiResult.id}`,
+        "PUT",
+        {}
+      );
+
       if (result) {
-        alert("Buyurtma to'langan holatga o'tkazildi!");
+        this.message = "Buyurtma to‘langan holatga o'tkazildi!";
         this.apiResult = null;
+        setTimeout(() => {
+          this.message = "";
+        }, 2000);
       }
+
+      this.focusScanner(); // To‘landi bosilgandan keyin inputni aktiv qilish
+    },
+
+    focusScanner() {
+      this.$nextTick(() => {
+        this.$refs.scannerInput?.focus();
+      });
     }
   },
+
   mounted() {
-    this.$refs.scannerInput.focus();
+    this.focusScanner(); // Komponent yuklanganda inputni aktiv qilish
   },
 };
 </script>
@@ -108,11 +146,10 @@ export default {
   padding-top: 50px;
 }
 
+/* Scanner Input har doim yashirin */
 .scanner-input {
   position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
+  left: -9999px;
 }
 
 .result-box {
@@ -154,5 +191,12 @@ export default {
 
 .pay-button:hover {
   background: #006400;
+}
+
+.no-orders {
+  margin-top: 10px;
+  color: #ff0000;
+  font-weight: bold;
+  text-align: center;
 }
 </style>
