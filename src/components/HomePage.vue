@@ -1,44 +1,58 @@
 <template>
-  <div class="scanner-container">
-    <input 
-      type="text" 
-      ref="scannerInput" 
-      v-model="scannedData" 
-      @keydown.enter.prevent="handleScan"
-      class="scanner-input"
-      placeholder="QR kodni skaner qiling..."
-    />
-    
-    <p v-if="message" :class="{'success-message': message.includes('To‘lov tasdiqlandi'), 'error-message': !message.includes('To‘lov tasdiqlandi')}">
-  {{ message }}
-    </p>
+  <div class="container">
+    <!-- Qabul qilingan buyurtmalar -->
+    <div v-if="!isScanning" class="orders-panel">
+      <h3 class="panel-title">📋 Qabul qilingan buyurtmalar</h3>
+      <ul v-if="receivedOrders.length" class="orders-list">
+        <li v-for="order in receivedOrders" :key="order.id" class="order-item">
+          <p><strong>🔐 ID:</strong> {{ order.id }}</p>
+          <p><strong>🪑 Stol:</strong> {{ order.tableNumber }}</p>
+          <ul>
+            <li v-for="food in order.orderedFoodsDto" :key="food.foodName">
+              {{ food.foodName }} - {{ food.foodCount }} ta
+            </li>
+          </ul>
+        </li>
+      </ul>
+      <p v-else>Hozircha buyurtmalar yo‘q.</p>
+    </div>
 
-
-    <div v-if="apiResult" class="result-container">
-      <h3 class="order-title">🍽 Buyurtma tafsilotlari</h3>
+    <!-- QR kod skaner paneli -->
+    <div class="scanner-panel">
+      <input 
+        type="text" 
+        ref="scannerInput" 
+        v-model="scannedData" 
+        @keydown.enter.prevent="handleScan"
+        class="scanner-input"
+        placeholder="📷 QR kodni skaner qiling..."
+      />
+      <p v-if="message" class="message">{{ message }}</p>
       
-      <div class="order-info">
-        <p><strong>🆔 Buyurtma ID:</strong> {{ apiResult.id }}</p>
-        <p><strong>🪑 Stol raqami:</strong> {{ apiResult.tableNumber }}</p>
-        <p><strong>💰 Umumiy narx:</strong> {{ formatPrice(apiResult.price) }}</p>
+      <!-- Skanner natijalari -->
+      <div v-if="apiResult" class="result-container">
+        <h3 class="order-title">🍽 Buyurtma tafsilotlari</h3>
+        <div class="order-info">
+          <p><strong>🔐 Buyurtma ID:</strong> {{ apiResult.id }}</p>
+          <p><strong>🪑 Stol raqami:</strong> {{ apiResult.tableNumber }}</p>
+          <p><strong>💰 Umumiy narx:</strong> {{ formatPrice(apiResult.price) }}</p>
+        </div>
+        <table class="food-table">
+          <thead>
+            <tr>
+              <th>🥘 Ovqat</th>
+              <th>🔢 Miqdor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="food in apiResult.foods" :key="food.foodName">
+              <td>{{ food.foodName }}</td>
+              <td>{{ food.quentity }} ta</td>
+            </tr>
+          </tbody>
+        </table>
+        <button @click="markAsPaid" class="pay-button">✅ To‘landi</button>
       </div>
-
-      <table class="food-table">
-        <thead>
-          <tr>
-            <th>🥘 Ovqat</th>
-            <th>🔢 Miqdor</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="food in apiResult.foods" :key="food.foodName">
-            <td>{{ food.foodName }}</td>
-            <td>{{ food.quentity }} ta</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <button @click="markAsPaid" class="pay-button">✅ To‘landi</button>
     </div>
   </div>
 </template>
@@ -50,28 +64,39 @@ export default {
       scannedData: "",
       isScanning: false,
       message: "",
-      apiResult: null
+      apiResult: null,
+      receivedOrders: []
     };
   },
   mounted() {
     this.focusInput();
+    this.fetchOrders();
   },
   methods: {
+    async fetchOrders() {
+      try {
+        const url = "https://api.bonapp.uz/Order/GetAllReceivedOrdersToPayOffice";
+        const result = await this.fetchData(url);
+        if (result?.code === 200 && result.content) {
+          this.receivedOrders = result.content;
+        }
+      } catch (error) {
+        console.error("Buyurtmalarni yuklashda xatolik:", error);
+      }
+    },
+
     async handleScan() {
       if (this.isScanning) return;
-      if (!this.scannedData.trim() || this.scannedData.length !== 8) {
-        alert("QR kod noto‘g‘ri! 8 xonali raqam bo‘lishi kerak.");
+      if (!this.scannedData.trim()) {
+        alert("QR kod noto‘g‘ri!");
         return;
       }
-
       this.isScanning = true;
       this.message = "";
       this.apiResult = null;
-
       try {
         const url = `https://api.bonapp.uz/Check/GetCheckByQrCode?number=${this.scannedData.trim()}`;
         const result = await this.fetchData(url);
-
         if (result?.code === 200 && result.content) {
           this.apiResult = result.content;
         } else {
@@ -80,7 +105,6 @@ export default {
       } catch (error) {
         this.message = "Server bilan aloqa yo‘q!";
       }
-
       this.resetScanner();
     },
 
@@ -89,8 +113,6 @@ export default {
         const url = `https://api.bonapp.uz/Check/ChangeCheckStatusToCash?id=${this.apiResult.id}`;
         await this.fetchData(url, "PUT");
         this.message = "To‘lov tasdiqlandi!";
-        
-        // 2 soniyadan keyin qutini yopamiz va skan qilishga qaytamiz
         setTimeout(() => {
           this.message = "";
           this.apiResult = null;
@@ -105,7 +127,6 @@ export default {
       try {
         const token = localStorage.getItem('jwt_token');
         if (!token) throw new Error("Token topilmadi! Avval login qiling");
-
         const response = await fetch(url, {
           method,
           headers: {
@@ -113,7 +134,6 @@ export default {
             "Authorization": `Bearer ${token}`
           }
         });
-
         if (!response.ok) throw new Error("Server javobi noto‘g‘ri");
         return response.json();
       } catch (error) {
@@ -144,71 +164,39 @@ export default {
 </script>
 
 <style scoped>
-.scanner-container {
+.container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 100%;
+}
+.orders-panel {
+  flex: 1;
   padding: 20px;
+  background: #f8f9fa;
+  border-right: 2px solid #ddd;
+}
+.panel-title {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+.orders-list {
+  list-style: none;
+  padding: 0;
+}
+.order-item {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+.scanner-panel {
+  flex: 1;
+  padding: 20px;
+  text-align: center;
 }
 .scanner-input {
-  width: 300px;
+  width: 100%;
   padding: 10px;
   font-size: 18px;
   border: 2px solid #007bff;
   border-radius: 5px;
   text-align: center;
-  margin-bottom: 10px;
-}
-.error-message {
-  color: red;
-}
-
-.success-message {
-  color: 28a745;
-  font-weight: bold;
-}
-
-.result-container {
-  margin-top: 20px;
-  padding: 15px;
-  border-radius: 10px;
-  background: #fff;
-  width: 400px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  text-align: center;
-}
-.order-title {
-  font-size: 20px;
-  margin-bottom: 10px;
-}
-.order-info {
-  text-align: left;
-  margin-bottom: 10px;
-}
-.food-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.food-table th, .food-table td {
-  padding: 10px;
-  border: 1px solid #ddd;
-  text-align: center;
-}
-.food-table th {
-  background-color: #007bff;
-  color: white;
-}
-.pay-button {
-  margin-top: 10px;
-  padding: 10px;
-  background: #28a745;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  width: 100%;
-}
-.pay-button:hover {
-  background: #218838;
 }
 </style>
