@@ -36,41 +36,6 @@
       </table>
       <button @click="markAsPaid" class="pay-button">✅ To‘landi</button>
     </div>
-    <!-- Orders Container -->
-    <div class="order-container">
-      <!-- Received Orders -->
-      <div class="order-list received-orders">
-        <h3>📝 Qabul qilingan buyurtmalar</h3>
-        <div v-if="receivedOrders.length === 0" class="empty-state">
-          Hozircha buyurtmalar yo‘q.
-        </div>
-        <div v-for="order in receivedOrders" :key="order.id" class="order-card">
-          <p><strong>📋 ID:</strong> {{ order.id }}</p>
-          <p><strong>🪑 Stol:</strong> {{ order.tableNumber || "Noma'lum" }}</p>
-          <ul>
-            <li v-for="item in order.orderedFoodsDto" :key="item.foodName">
-              {{ item.foodName }} - {{ item.foodCount }} ta
-            </li>
-          </ul>
-        </div>
-      </div>
-      <!-- Delivered Orders -->
-      <div class="order-list delivered-orders">
-        <h3>🚚 Yetkazilgan buyurtmalar</h3>
-        <div v-if="deliveredOrders.length === 0" class="empty-state">
-          Hozircha yetkazilgan buyurtmalar yo‘q.
-        </div>
-        <div v-for="order in deliveredOrders" :key="order.id" class="order-card">
-          <p><strong>📋 ID:</strong> {{ order.id }}</p>
-          <p><strong>🪑 Stol:</strong> {{ order.tableNumber || "Noma'lum" }}</p>
-          <ul>
-            <li v-for="item in order.orderedFoodsDto" :key="item.foodName">
-              {{ item.foodName }} - {{ item.foodCount }} ta
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -82,38 +47,12 @@ export default {
       isScanning: false,
       message: "",
       apiResult: null,
-      receivedOrders: [],
-      deliveredOrders: [],
     };
   },
   mounted() {
     this.focusInput();
-    this.fetchOrders();
-    this.fetchDeliveredOrders();
   },
   methods: {
-    async fetchOrders() {
-      try {
-        const url = "https://api.bonapp.uz/Order/GetAllReceivedOrdersToPayOffice";
-        const result = await this.fetchData(url);
-        if (result?.code === 200 && result.content) {
-          this.receivedOrders = result.content;
-        }
-      } catch (error) {
-        console.error("Buyurtmalarni yuklashda xatolik:", error);
-      }
-    },
-    async fetchDeliveredOrders() {
-      try {
-        const url = "https://api.bonapp.uz/Order/GetAllDeliveredOrdersToPayOffice";
-        const result = await this.fetchData(url);
-        if (result?.code === 200 && result.content) {
-          this.deliveredOrders = result.content;
-        }
-      } catch (error) {
-        console.error("Yetkazilgan buyurtmalarni yuklashda xatolik:", error);
-      }
-    },
     async handleScan() {
       if (this.isScanning) return;
       if (!this.scannedData.trim()) {
@@ -289,63 +228,7 @@ export default {
 .pay-button:hover {
   background: #218838;
 }
-/* Orders Container */
-.order-container {
-  display: flex;
-  gap: 30px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: stretch;
-  margin-top: 40px;
-}
-.order-list {
-  flex: 1;
-  min-width: 45%;
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-}
-.order-list h3 {
-  font-size: 24px;
-  font-weight: bold;
-  color: #343a40;
-  margin-bottom: 25px;
-}
-.empty-state {
-  text-align: center;
-  font-size: 18px;
-  color: #6c757d;
-  padding: 30px;
-}
-.order-card {
-  background: #f8f9fa;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-.order-card p {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.6;
-}
-.order-card ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 15px 0 0 0;
-}
-.order-card li {
-  font-size: 16px;
-  color: #555;
-}
 @media (max-width: 768px) {
-  .order-container {
-    flex-direction: column;
-  }
-  .order-list {
-    min-width: 100%;
-  }
   .scanner-input {
     width: 100%;
   }
