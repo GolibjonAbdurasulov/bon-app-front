@@ -10,14 +10,14 @@
         class="scanner-input"
         placeholder="🔍 QR kodni skaner qiling..."
       />
-      <p v-if="message" class="message">{{ message }}</p>
+      <p v-if="message" :class="['message', { 'success-message': isSuccessMessage }]">{{ message }}</p>
     </div>
     <!-- Scanned Order Details -->
     <div v-if="apiResult" class="result-container">
       <h3 class="order-title">🛒 Buyurtma tafsilotlari</h3>
       <div class="order-info">
         <p><strong>📋 Buyurtma ID:</strong> {{ apiResult.id }}</p>
-        <p><strong>🪑 Stol raqami:</strong> {{ apiResult.table }}</p>
+        <p><strong>🪑 Stol raqami:</strong> {{ apiResult.tableNumber || "Noma'lum" }}</p>
         <p><strong>💰 Umumiy narx:</strong> {{ formatPrice(apiResult.price) }}</p>
       </div>
       <table class="food-table">
@@ -47,6 +47,7 @@ export default {
       isScanning: false,
       message: "",
       apiResult: null,
+      isSuccessMessage: false, // Muvaffaqiyatli xabar uchun yangi holat
     };
   },
   mounted() {
@@ -57,6 +58,7 @@ export default {
       if (this.isScanning) return;
       if (!this.scannedData.trim()) {
         this.message = "QR kod noto‘g‘ri!";
+        this.isSuccessMessage = false; // Xabar yashil bo'lmaydi
         this.resetScanner();
         return;
       }
@@ -70,9 +72,11 @@ export default {
           this.apiResult = result.content;
         } else {
           this.message = "Hali buyurtmalar mavjud emas";
+          this.isSuccessMessage = false; // Xabar yashil bo'lmaydi
         }
       } catch (error) {
         this.message = "Server bilan aloqa yo‘q!";
+        this.isSuccessMessage = false; // Xabar yashil bo'lmaydi
       }
       this.resetScanner();
     },
@@ -82,9 +86,11 @@ export default {
         const response = await this.fetchData(url, "PUT");
         if (response?.code === 200) {
           this.message = "To‘lov tasdiqlandi!";
+          this.isSuccessMessage = true; // Xabar yashil bo'lishi kerak
           setTimeout(() => {
             this.apiResult = null;
             this.message = "";
+            this.isSuccessMessage = false; // Xabar yana standartga qaytadi
             this.isScanning = false;
           }, 2000);
         } else {
@@ -92,6 +98,7 @@ export default {
         }
       } catch (error) {
         this.message = "To‘lov tasdiqlanmadi!";
+        this.isSuccessMessage = false; // Xabar yashil bo'lmaydi
       }
     },
     async fetchData(url, method = "GET") {
@@ -169,11 +176,16 @@ export default {
   border-color: #0056b3;
   box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
 }
+/* Message Styles */
 .message {
   margin-top: 15px;
-  color: #dc3545;
+  color: #dc3545; /* Qizil rang (standart xato) */
   font-size: 18px;
   font-weight: bold;
+  text-align: center;
+}
+.success-message {
+  color: #28a745; /* Yashil rang (muvaffaqiyatli xabar) */
 }
 /* Scanned Order Details */
 .result-container {
