@@ -59,6 +59,7 @@
 import { onMounted, ref } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
+import * as signalR from "@microsoft/signalr";
 
 export default {
   setup() {
@@ -75,10 +76,10 @@ export default {
         });
 
         if (receivedResponse.data.code === 200) {
-          receivedOrders.value = receivedResponse.data.content.map(order => ({
+          receivedOrders.value = receivedResponse.data.content.map((order) => ({
             id: order.id,
             tableNumber: order.tableNumber,
-            foods: order.orderedFoodsDto.map(food => ({
+            foods: order.orderedFoodsDto.map((food) => ({
               name: food.foodName,
               quantity: food.foodCount,
             })),
@@ -91,10 +92,10 @@ export default {
         });
 
         if (deliveredResponse.data.code === 200) {
-          deliveredOrders.value = deliveredResponse.data.content.map(order => ({
+          deliveredOrders.value = deliveredResponse.data.content.map((order) => ({
             id: order.id,
             tableNumber: order.tableNumber,
-            foods: order.orderedFoodsDto.map(food => ({
+            foods: order.orderedFoodsDto.map((food) => ({
               name: food.foodName,
               quantity: food.foodCount,
             })),
@@ -105,13 +106,84 @@ export default {
       }
     };
 
+    // Fetch food details by IDs
+    const fetchFoodDetails = async (foodIds) => {
+      try {
+        const foodDetails = await Promise.all(
+          foodIds.map(async (foodId) => {
+            const response = await axios.get(`https://api.bonapp.uz/OrderedFood/GetByIdToChefView?id=${foodId}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem("jwt_token")}` },
+            });
+            return {
+              name: response.data.content.foodName,
+              quantity: response.data.content.quantity,
+            };
+          })
+        );
+        return foodDetails;
+      } catch (error) {
+        console.error("Error fetching food details:", error);
+        return foodIds.map(() => ({ name: "Noma'lum", quantity: 1 })); // Default qiymat
+      }
+    };
+
     // Go back to HomePage
     const goToHomePage = () => {
-      router.push({ name: "Home" }); // "HomePage" nomli route-ga yo'naltirish
+      router.push({ name: "Home" });
+    };
+
+    // SignalR Connection Setup
+    const setupSignalRConnection = () => {
+      const connection = new signalR.HubConnectionBuilder()
+        .withUrl("https://api.bonapp.uz/orderHub", {
+          accessTokenFactory: () => localStorage.getItem("jwt_token"),
+        })
+        .withAutomaticReconnect()
+        .build();
+
+      // Start the connection
+      connection.start().catch((err) => console.error("SignalR connection error:", err));
+
+      // Listen for "ReceiveOrderUpdate" event (for new received orders)
+      connection.on("ReceiveOrderUpdate", async (orderUpdate) => {
+  console.log("SignalR xabari keldi:", orderUpdate);
+
+  // Faqat "Received" tipidagi buyurtmalarni qabul qilamiz
+  if (orderUpdate.type === "Received") {
+    const orderedFoodsIds = Array.isArray(orderUpdate.orderedFoodsIds) ? orderUpdate.orderedFoodsIds : [];
+    const foods = await fetchFoodDetails(orderedFoodsIds);
+
+    const newOrder = {
+      id: orderUpdate.id,            // Kichik harf bilan "id"
+      tableNumber: orderUpdate.tableNumber,  // Kichik harf bilan "tableNumber"
+      foods: foods,
+    };
+    receivedOrders.value = [...receivedOrders.value, newOrder];
+  } else {
+    console.log("Qabul qilinmagan xabar turi:", orderUpdate.type);
+  }
+});
+
+
+
+
+// Listen for "SignalRDeliveredOrders" event (for delivered orders)
+connection.on("SignalRDeliveredOrders", (orderUpdate) => {
+  console.log("Order delivered:", orderUpdate);
+
+  // orderUpdate.id orqali qidiramiz, chunki logda property 'id' deb ko'rsatilgan
+  const deliveredOrderIndex = receivedOrders.value.findIndex((order) => order.id === orderUpdate.id);
+  if (deliveredOrderIndex !== -1) {
+    const [deliveredOrder] = receivedOrders.value.splice(deliveredOrderIndex, 1);
+    deliveredOrders.value = [...deliveredOrders.value, deliveredOrder];
+  }
+});
+
     };
 
     onMounted(() => {
       fetchInitialData();
+      setupSignalRConnection();
     });
 
     return {
@@ -184,4 +256,4 @@ ul {
 ul li {
   margin: 5px 0;
 }
-</style> tuzatdim
+</style>  
