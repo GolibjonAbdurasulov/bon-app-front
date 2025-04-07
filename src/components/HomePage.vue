@@ -38,10 +38,18 @@
       <button @click="markAsPaid" class="pay-button">✅ To‘landi</button>
     </div>
 
-    <!-- Orders Button (Fixed Position) -->
-    <div class="orders-button-container">
-      <button @click="goToOrdersPage" class="orders-button">📖 Buyurtmalar bo'limiga o'tish</button>
-    </div>
+<!-- Buttons Container -->
+<!-- Buttons Container -->
+<div class="buttons-container">
+  <!-- Orders Button -->
+  <div class="stretched-button">
+    <button @click="goToOrdersPage" class="orders-button">📖 Buyurtmalar bo'limiga o'tish</button>
+  </div>
+  <!-- Orders Report Button -->
+  <div class="stretched-button">
+    <button @click="goToOrdersReportPage" class="orders-report-button">📊 Kunlik buyurtmalar hisoboti</button>
+  </div>
+</div>
   </div>
 </template>
 
@@ -143,6 +151,10 @@ export default {
     // Orders Page ga o'tish funksiyasi
     goToOrdersPage() {
       this.$router.push({ name: "OrdersPage" }); // OrdersPage.vue ga yo'naltirish
+    },
+    // OrdersReport.vue ga o'tish funksiyasi
+    goToOrdersReportPage() {
+      this.$router.push({ name: "OrdersReportPage" }); // OrdersReport.vue ga yo'naltirish
     },
   },
 };
@@ -255,26 +267,50 @@ export default {
   background: #218838;
 }
 
-/* Orders Button (Fixed Position) */
-.orders-button-container {
+/* Buttons Container */
+.buttons-container {
   position: fixed;
-  bottom: 20px;
+  bottom: 20px; /* Sahifaning pastki qismida joylashgan */
   right: 20px;
   z-index: 1000; /* Har doim eng ustida bo'lishi uchun */
+  display: flex; /* Yonma-yon joylashish */
+  gap: 10px; /* Tugmalar orasidagi masofa */
+  flex-direction: column; /* Tugmalarni vertikal joylash */
 }
-.orders-button {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 14px 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: 0.3s;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+/* Stretched Button */
+.stretched-button {
+  width: 100%; /* Tugmani konteyner bo'ylab cho'zadi */
+  display: flex; /* Flexbox orqali tugmani markazlash */
 }
-.orders-button:hover {
-  background: #0056b3;
+
+.stretched-button .orders-button,
+.stretched-button .orders-report-button {
+  width: 100%; /* Tugmani butun eniga cho'zadi */
+  padding: 20px; /* Paddingni moslashtiramiz */
+  text-align: center; /* Matnni markazlash */
+  font-size: 20px; /* Font hajmi */
+  border-radius: 10px; /* Burchaklarni yumshatish */
+  border: none; /* Chegara yo'q */
+  cursor: pointer; /* Kursor ko'rinishi */
+  transition: 0.3s; /* O'tish effekti */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Soyavot effekti */
+}
+
+.stretched-button .orders-button {
+  background: #17a2b8; /* Rang */
+  color: white; /* Matn rangi */
+}
+.stretched-button .orders-button:hover {
+  background: #17a2b8; /* Hover rangi */
+}
+
+.stretched-button .orders-report-button {
+  background: #17a2b8; /* Turquoise rang */
+  color: white; /* Matn rangi */
+}
+.stretched-button .orders-report-button:hover {
+  background: #138496; /* Hover rangi */
 }
 
 @media (max-width: 768px) {
